@@ -83,6 +83,21 @@ def bytes_(i: int, data: bytes, chunksize=1, length: int = None, end: int = None
         raise Exception('Invalid arguments to bytes_ typefunc')
     return endpoint-i, data[i:endpoint]
 
+def plugininfo(i: int, data: bytes, length=None) -> Tuple[int, dict]:
+    i_old = i
+    ln, pluginCount = uint8(i, data)
+    i+=ln # add read length
+    json={}
+    json["pluginCount"] = pluginCount
+    json["plugins"] = list()
+    for x in range(0, pluginCount):
+        ln, pluginFileName = wstring(i, data)
+        i+= ln
+        json["plugins"].append(pluginFileName)
+    # end for
+    assert(i_old + length == i)
+    return length, json
+
 def encode_bytes(data: bytes) -> bytes:
     return data
 
@@ -140,7 +155,7 @@ mainlayout = [
     (uint8, 'formversion', {}),
     (wstring, 'gameversion', {'game': 'fallout4'}),
     (uint32, 'plugininfosize', {}),
-    (bytes_, 'plugininfo', {'length': 'plugininfosize'}),
+    (plugininfo, 'plugininfo', {'length': 'plugininfosize'}),
     # File location table
     (uint32, 'formidarraycountoffset', {}),
     (uint32, 'unknowntable3offset', {}),
@@ -432,6 +447,7 @@ def parse_savedata(rawdata: bytes) -> Tuple[str, Dict[str, Any]]:
                 for k,v in rawargs.items() if k != 'game'}
         offset, data[key] = typefunc(i, rawdata, **args)
         i += offset
+        assert i <= len(rawdata)
     assert i == len(rawdata)
     return game, data
 
